@@ -1,3 +1,4 @@
+/*
 #include <OneWire.h>
 #include <ESP8266WiFi.h>
 #include<ThingSpeak.h>
@@ -13,7 +14,7 @@ DallasTemperature sensors(&oneWire);
 unsigned long myChannelNumber = 445513;            // Thingspeak channel ID here
 const char* host = "api.thingspeak.com"; 
 const char* myWriteAPIKey = "FZHX32ACBNVQD6Z4";
-const char* ssid = "WIFINAME";
+const char* ssid = "WIFIID";
 const char* pass = "WIFIPASSWORD";
 
 int fieldStart = 1;  
@@ -103,4 +104,91 @@ void loop() {
  Serial.println("Data sent to ThinkSpeak");
  delay(updatePeriod * 1000);
 }
+*/
+//thinkspeak를 이용한 데이터 읽어오기
+#include <ESP8266WiFi.h>
+#include <DallasTemperature.h>
+#include <OneWire.h>
+//#include <ESP8266WiFiMulti.h>
+#define WIFISID "WIFIID"
+#define WIFIPASS "WIFIPASSWORD"
+// Definimos los parámetros para el IFTTT
+#define HOSTIFTTT "maker.ifttt.com"
+#define EVENTO "temperature"
+#define IFTTTKEY "cfgHollfHSRLHor_ETinLp"
+#define ONE_WIRE_BUS D4
+#define TEMPERATURE_PRECISION 11
 
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+//ESP8266WiFiMulti WiFiMulti;
+WiFiClientSecure client;
+bool ejecutado = false;
+void setup() {
+Serial.begin(115200);
+delay(10);
+WiFi.begin(WIFISID, WIFIPASS);
+Serial.println("");
+Serial.print("Eperando a conectar a la WiFi... ");
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(WIFISID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+//randomSeed(analogRead(A0));
+}
+void loop() {
+  if (!ejecutado)
+  {
+    // Obtenemos los valores
+     float temp;
+    sensors.requestTemperatures();
+    temp = sensors.getTempCByIndex(0);
+    float valor1 = temp;
+    Serial.println(valor1);
+    enviar_tweet(valor1,0,0);
+    //ejecutado = true;  
+  }
+  delay(3000);
+}
+
+void enviar_tweet(float valor1,float valor2,float valor3)
+{
+  if (client.connected())
+  {
+    client.stop();
+  }
+
+  client.flush();
+
+  if (client.connect(HOSTIFTTT,443)) {
+    Serial.println("Connected");
+    // Construimos la petición HTTP
+    String toSend = "GET /trigger/";
+    toSend += EVENTO;
+    toSend += "/with/key/";
+    toSend += IFTTTKEY;
+    toSend += "?value1=";
+    toSend += valor1;
+   // toSend += "&value2=";
+    //toSend += valor2;
+   // toSend += "&value3=";
+    //toSend += valor3;
+    toSend += " HTTP/1.1\r\n";
+    toSend += "Host: ";
+    toSend += HOSTIFTTT;
+    toSend += "\r\n";
+    toSend += "Connection: close\r\n\r\n";
+
+    client.print(toSend);
+  }
+
+  client.flush();
+  client.stop();
+}
